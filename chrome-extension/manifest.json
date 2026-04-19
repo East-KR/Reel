@@ -1,0 +1,34 @@
+{
+  "manifest_version": 3,
+  "name": "Flow Recorder",
+  "version": "0.1.0",
+  "description": "Record browser actions as reusable flow files for AI agents",
+  "permissions": [
+    "activeTab",
+    "scripting",
+    "nativeMessaging",
+    "contextMenus",
+    "storage",
+    "tabGroups",
+    "tabs",
+    "alarms"
+  ],
+  "host_permissions": [
+    "http://localhost:9999/*"
+  ],
+  "action": {
+    "default_popup": "src/popup.html",
+    "default_title": "Flow Recorder"
+  },
+  "background": {
+    "service_worker": "src/background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["src/content-script.js"],
+      "run_at": "document_idle",
+      "all_frames": true
+    }
+  ]
+}

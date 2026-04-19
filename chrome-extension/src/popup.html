@@ -1,0 +1,572 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      width: 440px;
+      min-height: 500px;
+      font-family: system-ui, -apple-system, sans-serif;
+      font-size: 12px;
+      background: #1e1e2e;
+      color: #cdd6f4;
+      display: flex;
+      flex-direction: column;
+    }
+
+    #app {
+      display: flex;
+      flex: 1;
+      min-height: 500px;
+    }
+
+    /* --- Sidebar --- */
+    #sidebar {
+      width: 140px;
+      min-width: 140px;
+      background: #181825;
+      border-right: 1px solid #313244;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    #sidebar-header {
+      padding: 10px 10px 6px;
+      font-size: 9px;
+      font-weight: 600;
+      letter-spacing: .8px;
+      text-transform: uppercase;
+      color: #6c7086;
+    }
+
+    #flow-tree {
+      flex: 1;
+      overflow-y: auto;
+      padding-bottom: 4px;
+    }
+
+    .domain-group { cursor: pointer; user-select: none; }
+
+    .domain-label {
+      padding: 4px 10px;
+      font-size: 10px;
+      font-weight: 600;
+      color: #a6e3a1;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .domain-label:hover { background: #1e1e2e; }
+
+    .domain-arrow { font-size: 8px; transition: transform .15s; }
+    .domain-group.collapsed .domain-arrow { transform: rotate(-90deg); }
+    .domain-group.collapsed .flow-list { display: none; }
+
+    .flow-item {
+      padding: 4px 10px 4px 20px;
+      font-size: 10px;
+      color: #6c7086;
+      cursor: pointer;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .flow-item:hover { background: #1e1e2e; color: #cdd6f4; }
+
+    .flow-item.selected {
+      background: #313244;
+      color: #cdd6f4;
+      border-left: 2px solid #cba6f7;
+      padding-left: 18px;
+    }
+
+    #sidebar-footer {
+      padding: 8px;
+      border-top: 1px solid #313244;
+    }
+
+    #btn-record {
+      width: 100%;
+      background: #4A90E2;
+      color: white;
+      border: none;
+      padding: 6px;
+      border-radius: 5px;
+      font-size: 10px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    #btn-record:hover { background: #3a7bd5; }
+    #btn-record:disabled { opacity: .4; cursor: default; }
+
+    /* --- Detail panel --- */
+    #detail {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* Empty state */
+    #detail-empty {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      color: #6c7086;
+      gap: 8px;
+      padding: 20px;
+      text-align: center;
+    }
+
+    #detail-empty .empty-icon { font-size: 32px; opacity: .4; }
+    #detail-empty .empty-text { font-size: 11px; }
+
+    /* Flow detail */
+    #detail-flow {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      padding: 12px;
+      gap: 8px;
+      overflow: hidden;
+    }
+
+    #flow-header .flow-name {
+      font-size: 14px;
+      font-weight: 700;
+      color: #cdd6f4;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    #flow-header .flow-meta { font-size: 9px; color: #6c7086; margin-top: 2px; }
+
+    #step-list {
+      flex: 1;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+      min-height: 0;
+    }
+
+    .step-card {
+      background: #181825;
+      border-radius: 4px;
+      padding: 5px 7px;
+      border-left: 2px solid transparent;
+    }
+
+    .step-card .step-action {
+      font-size: 9px;
+      font-weight: 600;
+    }
+
+    .step-card .step-desc {
+      font-size: 9px;
+      color: #a6adc8;
+      margin-top: 1px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .step-card.action-navigate .step-action { color: #89b4fa; }
+    .step-card.action-fill .step-action { color: #a6e3a1; }
+    .step-card.action-click .step-action { color: #f9e2af; }
+    .step-card.action-select .step-action { color: #fab387; }
+    .step-card.action-wait .step-action { color: #6c7086; }
+    .step-card.action-screenshot .step-action { color: #cba6f7; }
+
+    /* Run progress states */
+    .step-card.step-done { border-left-color: #a6e3a1; }
+    .step-card.step-running { border-left-color: #f9e2af; }
+    .step-card.step-error { border-left-color: #f38ba8; }
+    .step-card.step-pending { opacity: .4; }
+
+    .step-status { float: right; font-size: 10px; }
+
+    /* Variables panel */
+    #variables-panel {
+      background: #181825;
+      border-radius: 6px;
+      padding: 8px;
+    }
+
+    #variables-panel .vars-label {
+      font-size: 9px;
+      font-weight: 600;
+      color: #6c7086;
+      letter-spacing: .5px;
+      text-transform: uppercase;
+      margin-bottom: 6px;
+    }
+
+    .var-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-bottom: 4px;
+    }
+
+    .var-row:last-child { margin-bottom: 0; }
+
+    .var-name {
+      color: #cba6f7;
+      font-size: 10px;
+      white-space: nowrap;
+      min-width: 60px;
+    }
+
+    .var-input {
+      flex: 1;
+      background: #313244;
+      border: 1px solid #45475a;
+      border-radius: 3px;
+      padding: 3px 6px;
+      color: #cdd6f4;
+      font-size: 10px;
+      font-family: inherit;
+    }
+
+    .var-input:focus { outline: none; border-color: #cba6f7; }
+
+    /* Run controls */
+    #run-controls {
+      display: flex;
+      gap: 6px;
+    }
+
+    #btn-run {
+      flex: 1;
+      background: #cba6f7;
+      color: #1e1e2e;
+      border: none;
+      padding: 8px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    #btn-run:hover { background: #b88ff0; }
+    #btn-run:disabled { opacity: .4; cursor: default; }
+
+    #btn-stop-run {
+      flex: 1;
+      background: #f38ba8;
+      color: #1e1e2e;
+      border: none;
+      padding: 8px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+      display: none;
+    }
+
+    #btn-delete-flow {
+      background: #313244;
+      color: #a6adc8;
+      border: none;
+      padding: 8px 10px;
+      border-radius: 6px;
+      font-size: 13px;
+      cursor: pointer;
+    }
+
+    #btn-delete-flow:hover { background: #45475a; }
+
+    #run-status {
+      font-size: 10px;
+      color: #6c7086;
+      text-align: center;
+      min-height: 14px;
+    }
+
+    /* Recording panel */
+    #recording-panel {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      padding: 12px;
+      gap: 8px;
+      overflow: hidden;
+    }
+
+    #recording-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    #btn-back {
+      background: none;
+      border: none;
+      color: #6c7086;
+      cursor: pointer;
+      font-size: 11px;
+      padding: 0;
+    }
+
+    #btn-back:hover { color: #cdd6f4; }
+
+    #recording-status { font-size: 11px; color: #6c7086; }
+    #recording-status.active { color: #f38ba8; }
+
+    #recording-step-list {
+      flex: 1;
+      overflow-y: auto;
+      min-height: 0;
+    }
+
+    .recording-step {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 3px 0;
+      border-bottom: 1px solid #313244;
+      font-size: 11px;
+    }
+
+    .recording-step-label { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .var-toggle { width: auto; padding: 2px 7px; font-size: 10px; border-radius: 10px; background: #313244; color: #cba6f7; border: 1px solid #6c5e8a; margin-bottom: 0; cursor: pointer; }
+    .var-toggle:hover { background: #45475a; }
+    .var-toggle.active { background: #2a1f3d; color: #cba6f7; border-color: #cba6f7; }
+
+    #save-section { display: none; }
+
+    #flow-name-input {
+      width: 100%;
+      background: #313244;
+      border: 1px solid #45475a;
+      border-radius: 4px;
+      padding: 6px 8px;
+      color: #cdd6f4;
+      font-size: 11px;
+      font-family: inherit;
+    }
+
+    #flow-name-input:focus { outline: none; border-color: #cba6f7; }
+
+    #btn-save {
+      width: 100%;
+      background: #a6e3a1;
+      color: #1e1e2e;
+      border: none;
+      padding: 7px;
+      border-radius: 5px;
+      font-size: 11px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    #btn-save:disabled { opacity: .4; cursor: default; }
+
+    #save-status { font-size: 10px; color: #6c7086; min-height: 14px; text-align: center; }
+
+    #btn-start-rec, #btn-stop-rec {
+      width: 100%;
+      border: none;
+      padding: 6px;
+      border-radius: 5px;
+      font-size: 11px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    #btn-start-rec { background: #4A90E2; color: white; }
+    #btn-stop-rec { background: #f38ba8; color: #1e1e2e; }
+    #btn-start-rec:disabled, #btn-stop-rec:disabled { opacity: .4; cursor: default; }
+
+    /* Agent Bridge */
+    #agent-bridge {
+      padding: 8px;
+      border-top: 1px solid #313244;
+    }
+    #bridge-row { display: flex; align-items: center; gap: 6px; }
+    #bridge-label { font-size: 9px; font-weight: 600; letter-spacing: .6px; text-transform: uppercase; color: #6c7086; flex: 1; }
+    #bridge-btn { padding: 2px 8px; font-size: 10px; border-radius: 8px; border: 1px solid #45475a; cursor: pointer; background: #313244; color: #6c7086; }
+    #bridge-btn.on { background: #a6e3a1; color: #1e1e2e; border-color: #a6e3a1; }
+    #bridge-status { font-size: 9px; color: #6c7086; margin-top: 3px; min-height: 12px; }
+    #bridge-status.connected { color: #a6e3a1; }
+
+    /* Inline variable input row (recording panel) */
+    .var-inline-row {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      padding: 3px 0 3px 8px;
+      border-bottom: 1px solid #313244;
+      background: #1e1e2e;
+    }
+
+    .var-inline-prefix,
+    .var-inline-suffix {
+      font-size: 11px;
+      color: #cba6f7;
+      font-family: monospace;
+    }
+
+    .var-inline-input {
+      flex: 1;
+      background: #313244;
+      border: 1px solid #45475a;
+      border-radius: 3px;
+      padding: 2px 5px;
+      color: #cdd6f4;
+      font-size: 10px;
+      font-family: monospace;
+    }
+
+    .var-inline-input:focus { outline: none; border-color: #cba6f7; }
+
+    .var-inline-input.input-error {
+      border-color: #f38ba8;
+      animation: shake 0.3s ease;
+    }
+
+    @keyframes shake {
+      0%, 100% { transform: translateX(0); }
+      25% { transform: translateX(-4px); }
+      75% { transform: translateX(4px); }
+    }
+
+    .var-inline-cancel {
+      background: none;
+      border: none;
+      color: #6c7086;
+      cursor: pointer;
+      font-size: 11px;
+      padding: 2px 4px;
+      line-height: 1;
+    }
+
+    .var-inline-cancel:hover { color: #f38ba8; }
+
+    /* Flow description — detail view */
+    #flow-description {
+      font-size: 10px;
+      color: #a6adc8;
+      line-height: 1.4;
+      cursor: pointer;
+      padding: 2px 0;
+      min-height: 16px;
+    }
+
+    #flow-description:hover { color: #cdd6f4; }
+
+    #flow-description.empty {
+      color: #45475a;
+      font-style: italic;
+    }
+
+    .flow-desc-edit {
+      width: 100%;
+      background: #313244;
+      border: 1px solid #cba6f7;
+      border-radius: 4px;
+      padding: 4px 6px;
+      color: #cdd6f4;
+      font-size: 10px;
+      font-family: inherit;
+      resize: none;
+    }
+
+    .flow-desc-edit:focus { outline: none; }
+
+    /* Description input in save section */
+    #flow-desc-input {
+      width: 100%;
+      background: #313244;
+      border: 1px solid #45475a;
+      border-radius: 4px;
+      padding: 5px 8px;
+      color: #cdd6f4;
+      font-size: 10px;
+      font-family: inherit;
+      resize: none;
+      margin-top: 4px;
+    }
+
+    #flow-desc-input:focus { outline: none; border-color: #cba6f7; }
+  </style>
+</head>
+<body>
+  <div id="app">
+
+    <!-- Sidebar -->
+    <div id="sidebar">
+      <div id="sidebar-header">My Flows</div>
+      <div id="flow-tree"></div>
+      <div id="sidebar-footer">
+        <button id="btn-record">● New Recording</button>
+      </div>
+      <div id="agent-bridge">
+        <div id="bridge-row">
+          <span id="bridge-label">Agent Bridge</span>
+          <button id="bridge-btn">○ OFF</button>
+        </div>
+        <div id="bridge-status"></div>
+      </div>
+    </div>
+
+    <!-- Detail panel -->
+    <div id="detail">
+
+      <!-- Empty state -->
+      <div id="detail-empty">
+        <div class="empty-icon">📂</div>
+        <div class="empty-text">Select a flow to view details</div>
+      </div>
+
+      <!-- Flow detail (hidden by default) -->
+      <div id="detail-flow" style="display:none">
+        <div id="flow-header">
+          <div class="flow-name" id="flow-name-display"></div>
+          <div class="flow-meta" id="flow-meta"></div>
+          <div id="flow-description"></div>
+        </div>
+        <div id="step-list"></div>
+        <div id="variables-panel" style="display:none">
+          <div class="vars-label">Variables</div>
+          <div id="var-rows"></div>
+        </div>
+        <div id="run-controls">
+          <button id="btn-run">▶ Run</button>
+          <button id="btn-stop-run">■ Stop</button>
+          <button id="btn-delete-flow" title="Delete flow">🗑</button>
+        </div>
+        <div id="run-status"></div>
+      </div>
+
+      <!-- Recording panel (hidden by default) -->
+      <div id="recording-panel" style="display:none">
+        <div id="recording-header">
+          <button id="btn-back">← Back</button>
+          <div id="recording-status">Not recording</div>
+        </div>
+        <div id="recording-step-list"></div>
+        <div id="save-section">
+          <input id="flow-name-input" type="text" placeholder="flow-name (e.g. search)" />
+          <textarea id="flow-desc-input" placeholder="Flow description (optional)" rows="2"></textarea>
+          <button id="btn-save">Save Flow</button>
+        </div>
+        <div id="save-status"></div>
+        <button id="btn-start-rec">● Start Recording</button>
+        <button id="btn-stop-rec" disabled>■ Stop Recording</button>
+      </div>
+
+    </div>
+  </div>
+  <script src="popup.js"></script>
+</body>
+</html>
