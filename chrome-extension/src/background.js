@@ -298,7 +298,7 @@ async function pollBridge() {
     if (res.status === 204) return; // no command queued
     const cmd = await res.json();
 
-    // save_flow: write to native host directly — no tab needed
+    // save_flow: write to local storage directly — no tab needed
     if (cmd.action === 'save_flow') {
       if (!cmd.domain || !cmd.name || !cmd.flow) {
         await postResult({ id: cmd.id, ok: false, error: 'save_flow requires domain, name, and flow' });
