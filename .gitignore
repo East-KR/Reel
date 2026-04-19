@@ -2,3 +2,4 @@ node_modules/
 .superset/
 .gstack/
 docs/
+scripts/node_modules/
