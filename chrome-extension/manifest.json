@@ -1,6 +1,6 @@
 {
   "manifest_version": 3,
-  "name": "Flow Recorder",
+  "name": "Reel",
   "version": "0.1.0",
   "description": "Record browser actions as reusable flow files for AI agents",
   "permissions": [
