@@ -20,18 +20,47 @@ let recorderStateLoadPromise = null;
 // Keep-alive: hold references to port connections from Flows tabs
 const keepalivePorts = new Set();
 
-// --- Native Messaging Host ---
+// --- Flow Storage (chrome.storage.local) ---
 
-function sendToNativeHost(msg) {
-  return new Promise((resolve) => {
-    chrome.runtime.sendNativeMessage('com.flowrecorder.host', msg, (response) => {
-      if (chrome.runtime.lastError) {
-        resolve({ ok: false, error: chrome.runtime.lastError.message });
-      } else {
-        resolve(response || { ok: false, error: 'No response from host' });
-      }
-    });
-  });
+async function flowList() {
+  const { flows } = await chrome.storage.local.get('flows');
+  const data = flows || {};
+  const result = {};
+  for (const [domain, byName] of Object.entries(data)) {
+    result[domain] = Object.values(byName).map(({ name, description, variables }) => ({
+      name,
+      description: description || '',
+      variables: variables || {},
+    }));
+  }
+  return { ok: true, flows: result };
+}
+
+async function flowRead(domain, name) {
+  const { flows } = await chrome.storage.local.get('flows');
+  const flow = (flows || {})[domain]?.[name];
+  if (!flow) return { ok: false, error: `Flow not found: ${domain}/${name}` };
+  return { ok: true, flow };
+}
+
+async function flowSave(domain, name, flow) {
+  const { flows } = await chrome.storage.local.get('flows');
+  const data = flows || {};
+  if (!data[domain]) data[domain] = {};
+  data[domain][name] = flow;
+  await chrome.storage.local.set({ flows: data });
+  return { ok: true };
+}
+
+async function flowDelete(domain, name) {
+  const { flows } = await chrome.storage.local.get('flows');
+  const data = flows || {};
+  if (data[domain]) {
+    delete data[domain][name];
+    if (Object.keys(data[domain]).length === 0) delete data[domain];
+  }
+  await chrome.storage.local.set({ flows: data });
+  return { ok: true };
 }
 
 let runAbortFlag = false;
@@ -275,18 +304,13 @@ async function pollBridge() {
         await postResult({ id: cmd.id, ok: false, error: 'save_flow requires domain, name, and flow' });
         return;
       }
-      const result = await sendToNativeHost({
-        type: 'SAVE',
-        domain: cmd.domain,
-        name: cmd.name,
-        flow: cmd.flow,
-      });
+      const result = await flowSave(cmd.domain, cmd.name, cmd.flow);
       await postResult({ id: cmd.id, ...result });
       return;
     }
 
     if (cmd.action === 'list_flows') {
-      const result = await sendToNativeHost({ type: 'LIST' });
+      const result = await flowList();
       await postResult({ id: cmd.id, ...result });
       return;
     }
@@ -297,7 +321,7 @@ async function pollBridge() {
         return;
       }
 
-      const readResult = await sendToNativeHost({ type: 'READ', domain: cmd.domain, name: cmd.name });
+      const readResult = await flowRead(cmd.domain, cmd.name);
       if (!readResult.ok) {
         await postResult({ id: cmd.id, ok: false, error: readResult.error || 'Flow not found' });
         return;
@@ -539,10 +563,6 @@ async function handleMessage(msg, sender, sendResponse) {
       sendResponse({ ok: false, error: msg });
       return;
     }
-    // Auto-start bridge server via native host (ignore errors — server may already be running)
-    await sendToNativeHost({ type: 'START_BRIDGE' });
-    // Give server a moment to bind before polling starts
-    await new Promise(r => setTimeout(r, 600));
     await chrome.storage.session.set({ bridgeEnabled: true });
     startBridgePolling();
     chrome.alarms.create('bridge-keepalive', { periodInMinutes: 0.4 });
@@ -560,19 +580,19 @@ async function handleMessage(msg, sender, sendResponse) {
     sendResponse({ bridgeEnabled: bridgeEnabled || false });
 
   } else if (msg.type === 'LIST_FLOWS') {
-    const result = await sendToNativeHost({ type: 'LIST' });
+    const result = await flowList();
     sendResponse(result);
 
   } else if (msg.type === 'READ_FLOW') {
-    const result = await sendToNativeHost({ type: 'READ', domain: msg.domain, name: msg.name });
+    const result = await flowRead(msg.domain, msg.name);
     sendResponse(result);
 
   } else if (msg.type === 'SAVE_FLOW') {
-    const result = await sendToNativeHost({ type: 'SAVE', domain: msg.domain, name: msg.name, flow: msg.flow });
+    const result = await flowSave(msg.domain, msg.name, msg.flow);
     sendResponse(result);
 
   } else if (msg.type === 'DELETE_FLOW') {
-    const result = await sendToNativeHost({ type: 'DELETE', domain: msg.domain, name: msg.name });
+    const result = await flowDelete(msg.domain, msg.name);
     sendResponse(result);
 
   } else if (msg.type === 'RUN_FLOW') {
