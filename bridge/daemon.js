@@ -90,7 +90,11 @@ async function stop() {
     console.log('Server not running');
     return;
   }
-  process.kill(pid);
+  try {
+    process.kill(pid);
+  } catch (e) {
+    if (e.code !== 'ESRCH' && e.code !== 'EPERM') throw e;
+  }
   clearPid();
   console.log(`Server stopped (pid ${pid})`);
 }
