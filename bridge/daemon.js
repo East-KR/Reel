@@ -20,7 +20,8 @@ function ensureDir() {
 
 function getPid() {
   try {
-    return parseInt(fs.readFileSync(getPidFile(), 'utf8').trim(), 10);
+    const n = parseInt(fs.readFileSync(getPidFile(), 'utf8').trim(), 10);
+    return Number.isInteger(n) ? n : null;
   } catch {
     return null;
   }
@@ -75,6 +76,7 @@ async function start() {
     detached: true,
     stdio: ['ignore', logStream, logStream],
   });
+  fs.closeSync(logStream);
   child.unref();
   writePid(child.pid);
   console.log(`Server started (pid ${child.pid})`);

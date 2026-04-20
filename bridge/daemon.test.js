@@ -29,6 +29,11 @@ describe('getPid', () => {
     fs.writeFileSync(path.join(TEST_DIR, 'server.pid'), '12345', 'utf8');
     expect(daemon.getPid()).toBe(12345);
   });
+
+  test('PID 파일이 숫자가 아니면 null 반환', () => {
+    fs.writeFileSync(path.join(TEST_DIR, 'server.pid'), 'corrupt', 'utf8');
+    expect(daemon.getPid()).toBeNull();
+  });
 });
 
 describe('writePid / clearPid', () => {
