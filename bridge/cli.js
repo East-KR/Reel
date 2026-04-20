@@ -51,6 +51,10 @@ switch (cmd) {
 
   case 'install-skill': {
     const src = path.join(__dirname, 'skills', 'reel-browser', 'SKILL.md');
+    if (!fs.existsSync(src)) {
+      console.error(`Skill file not found: ${src}`);
+      process.exit(1);
+    }
     const destDir = path.join(os.homedir(), '.claude', 'skills', 'reel-browser');
     fs.mkdirSync(destDir, { recursive: true });
     fs.copyFileSync(src, path.join(destDir, 'SKILL.md'));
