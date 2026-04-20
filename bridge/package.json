@@ -1,0 +1,24 @@
+{
+  "name": "reel-browser",
+  "version": "0.1.0",
+  "description": "Bridge server and CLI for the Reel browser automation tool",
+  "bin": {
+    "reel": "./cli.js"
+  },
+  "files": [
+    "cli.js",
+    "daemon.js",
+    "server.js",
+    "flowrun.js",
+    "flowgen.js",
+    "skills/"
+  ],
+  "scripts": {
+    "test": "jest"
+  },
+  "keywords": ["browser", "automation", "flow", "reel"],
+  "license": "MIT",
+  "devDependencies": {
+    "jest": "^29.0.0"
+  }
+}
