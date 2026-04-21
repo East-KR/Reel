@@ -63,6 +63,20 @@ async function flowDelete(domain, name) {
   return { ok: true };
 }
 
+async function varsSave(domain, name, vars) {
+  const { varValues } = await chrome.storage.local.get('varValues');
+  const data = varValues || {};
+  data[`${domain}/${name}`] = vars;
+  await chrome.storage.local.set({ varValues: data });
+  return { ok: true };
+}
+
+async function varsLoad(domain, name) {
+  const { varValues } = await chrome.storage.local.get('varValues');
+  const vars = (varValues || {})[`${domain}/${name}`] || {};
+  return { ok: true, vars };
+}
+
 let runAbortFlag = false;
 let runActive = false;
 
@@ -328,7 +342,8 @@ async function pollBridge() {
       }
 
       const flow = readResult.flow;
-      const vars = cmd.vars || {};
+      const savedVars = (await varsLoad(cmd.domain, cmd.name)).vars;
+      const vars = { ...savedVars, ...(cmd.vars || {}) };
       const steps = substituteStepVars(flow.steps || [], vars);
 
       let target = null;
@@ -405,8 +420,33 @@ async function pollBridge() {
         }
       }
 
+      // Save vars so they persist for next run
+      if (Object.keys(vars).length > 0) {
+        await varsSave(cmd.domain, cmd.name, vars);
+      }
+
       // ok:true means the command was processed; step-level failures are in results[].ok
       await postResult({ id: cmd.id, ok: true, results: stepResults });
+      return;
+    }
+
+    if (cmd.action === 'get_vars') {
+      if (!cmd.domain || !cmd.name) {
+        await postResult({ id: cmd.id, ok: false, error: 'get_vars requires domain and name' });
+        return;
+      }
+      const result = await varsLoad(cmd.domain, cmd.name);
+      await postResult({ id: cmd.id, ...result });
+      return;
+    }
+
+    if (cmd.action === 'save_vars') {
+      if (!cmd.domain || !cmd.name || !cmd.vars) {
+        await postResult({ id: cmd.id, ok: false, error: 'save_vars requires domain, name, and vars' });
+        return;
+      }
+      const result = await varsSave(cmd.domain, cmd.name, cmd.vars);
+      await postResult({ id: cmd.id, ...result });
       return;
     }
 

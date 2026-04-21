@@ -39,6 +39,20 @@ async function flowDelete(domain, name) {
   return { ok: true };
 }
 
+async function varsSave(domain, name, vars) {
+  const { varValues } = await chrome.storage.local.get('varValues');
+  const data = varValues || {};
+  data[`${domain}/${name}`] = vars;
+  await chrome.storage.local.set({ varValues: data });
+  return { ok: true };
+}
+
+async function varsLoad(domain, name) {
+  const { varValues } = await chrome.storage.local.get('varValues');
+  const vars = (varValues || {})[`${domain}/${name}`] || {};
+  return { ok: true, vars };
+}
+
 if (typeof module !== 'undefined') {
-  module.exports = { flowList, flowRead, flowSave, flowDelete };
+  module.exports = { flowList, flowRead, flowSave, flowDelete, varsSave, varsLoad };
 }

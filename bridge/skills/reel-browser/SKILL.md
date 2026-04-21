@@ -1,11 +1,11 @@
 ---
 name: reel-browser
-description: Use when the user wants to run a recorded browser flow, automate a web task using a saved flow file, or execute browser actions defined in a ~/.flows JSON file. Triggers on "run flow", "automate this", "use my recorded flow", "open browser and do X".
+description: Use when the user wants to run a recorded browser flow, automate a web task using a saved flow file, or execute browser actions defined in a ~/.flows JSON file. Triggers on "run flow", "automate this", "use my recorded flow", "open browser and do X", "create a flow for", "make a flow".
 ---
 
 # reel-browser Skill
 
-Executes recorded browser flows from `~/.flows/` using the dev-browser CLI or the Chrome extension bridge.
+Executes recorded browser flows from `~/.flows/` using the dev-browser CLI or the Chrome extension bridge. Also creates new flow files by scanning pages via the bridge or using `reel gen`.
 
 ## Installation Check
 
@@ -17,6 +17,59 @@ fi
 ```
 
 Run `dev-browser install` once (after npm install) to download Playwright + Chromium.
+
+## Flow Creation
+
+When the user asks to **create** or **generate** a flow (no existing flow file):
+
+### Option A: reel gen (ANTHROPIC_API_KEY available)
+
+```bash
+# Check key first
+echo $ANTHROPIC_API_KEY | head -c 5
+```
+
+If key is set and bridge is connected:
+```bash
+reel gen --goal "<user's goal description>"
+```
+
+This scans the current page via the extension and calls Claude API to generate and save the flow.
+
+### Option B: Manual creation (no ANTHROPIC_API_KEY, or key not set)
+
+When `ANTHROPIC_API_KEY` is not available, create the flow JSON directly:
+
+1. **Ensure bridge is connected** — check `/status`, start `reel start` if needed
+2. **Navigate to target page** via bridge enqueue:
+   ```javascript
+   await step({ action: 'navigate', url: 'TARGET_URL' });
+   ```
+3. **Scan page elements** via bridge:
+   ```javascript
+   await step({ action: 'scan_page' });
+   ```
+4. **Construct flow JSON** from scan results — identify the relevant input/button selectors for the user's goal, use `{{variableName}}` for any dynamic values (credentials, search terms, etc.)
+5. **Save to filesystem** `~/.flows/{domain}/{flow-name}.flow.json`
+6. **Sync to extension** via bridge `save_flow` — without this step the flow won't appear in the Chrome popup:
+   ```javascript
+   await step({ action: 'save_flow', domain: flow.domain, name: flow.name, flow });
+   ```
+7. **Confirm to user** what was created and ask if they want to run it now
+
+Use this format for the saved file:
+```json
+{
+  "name": "flow-name",
+  "domain": "example.com",
+  "description": "What this flow does",
+  "version": 1,
+  "steps": [...],
+  "variables": {
+    "varName": { "source": "user", "description": "What to enter here" }
+  }
+}
+```
 
 ## Execution Loop
 
@@ -57,14 +110,34 @@ If validation fails, abort with a specific message.
 
 ### 4. Resolve Variables
 
-For each variable with `source: "user"`:
+#### Bridge mode: load saved vars first
 
-1. **git context** — for `owner`/`repo`: `git remote get-url origin`
-2. **package.json** — for `name`/`version`: `cat package.json | python3 -m json.tool`
-3. **Inferred** → show user and ask to confirm: "I found owner=myorg, repo=myrepo. Proceed?"
-4. **Not found** → ask user directly
+If bridge is active (`{"connected":true}`), load previously saved variable values before asking the user:
 
-Never run the flow before all variables are confirmed.
+```javascript
+await step({ action: 'get_vars', domain: flow.domain, name: flow.name });
+// returns { ok: true, vars: { email: "...", password: "..." } }
+```
+
+Use saved values as defaults. Only prompt the user for variables that have no saved value.
+
+#### Variable resolution order (for each variable with `source: "user"`):
+
+1. **Saved vars** (from `get_vars`) — use without asking; show to user for confirmation
+2. **git context** — for `owner`/`repo`: `git remote get-url origin`
+3. **package.json** — for `name`/`version`: `cat package.json | python3 -m json.tool`
+4. **Auto-generate** — if no value found and bridge is active, generate a sensible test value (e.g. `test_user_<random>@example.com` for email, `TestUser` for names, random 8-char string for passwords). Tell the user: "No saved value for `email` — using auto-generated: test_abc123@example.com"
+5. **Ask user directly** — if headless mode or user prefers to supply values
+
+Never run the flow before all variables are resolved.
+
+#### Save vars after confirming (bridge mode)
+
+After all variables are confirmed/generated but before running the flow, save them so the user can reuse them next time:
+
+```javascript
+await step({ action: 'save_vars', domain: flow.domain, name: flow.name, vars: resolvedVars });
+```
 
 ### 5. Check Execution Mode
 

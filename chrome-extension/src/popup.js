@@ -191,8 +191,8 @@ async function selectFlow(domain, name) {
   }
   state.currentFlow = result.flow;
 
-  // Restore saved variable values from session storage
-  chrome.storage.session.get('varValues', ({ varValues }) => {
+  // Restore saved variable values from local storage
+  chrome.storage.local.get('varValues', ({ varValues }) => {
     if (seq !== state.selectSeq) return; // superseded
     const saved = (varValues || {})[`${domain}/${name}`] || {};
     state.varValues = saved;
@@ -331,10 +331,10 @@ function saveVarValues() {
   clearTimeout(saveVarValuesTimer);
   saveVarValuesTimer = setTimeout(() => {
     const key = `${state.selectedDomain}/${state.selectedName}`;
-    chrome.storage.session.get('varValues', ({ varValues }) => {
+    chrome.storage.local.get('varValues', ({ varValues }) => {
       const all = varValues || {};
       all[key] = state.varValues;
-      chrome.storage.session.set({ varValues: all });
+      chrome.storage.local.set({ varValues: all });
     });
   }, 300);
 }
